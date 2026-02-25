@@ -192,6 +192,29 @@ final class EcosystemViewModel: ObservableObject {
         triggerHaptic(style: .medium)
     }
 
+    /// Goes back to the previous phase when possible.
+    func goToPreviousPhase() {
+        guard phase != .abundance else { return }
+        showHint       = false
+        phaseCompleted = false
+
+        withAnimation(.easeInOut(duration: 1.2)) {
+            switch phase {
+            case .abundance:
+                break
+            case .decline:
+                phase = .abundance
+                phaseElapsed = 0.0
+            case .recovery:
+                phase = .decline
+                phaseElapsed = 0.0
+            }
+        }
+        triggerHaptic(style: .medium)
+    }
+
+    var hasPreviousPhase: Bool { phase != .abundance }
+
     private func tickRecovery() {
         let habitatBonus  = placedHabitatCount >= 3 ? 1.7 : 1.0
         let recoveryRate  = (1.0 - pesticideLevel) * biodiversity * habitatBonus * 0.009

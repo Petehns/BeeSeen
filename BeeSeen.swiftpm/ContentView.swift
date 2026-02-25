@@ -5,7 +5,7 @@ import SwiftUI
 struct ContentView: View {
     @StateObject private var vm = EcosystemViewModel()
     @Environment(\.horizontalSizeClass) private var sizeClass
-    @State private var isSidebarVisible: Bool = true
+    @State private var isSidebarVisible = true
 
     var body: some View {
         GeometryReader { geo in
@@ -16,6 +16,7 @@ struct ContentView: View {
             }
         }
         .ignoresSafeArea()
+        .statusBarHidden(true)
         .onAppear { vm.start() }
     }
 
@@ -23,23 +24,44 @@ struct ContentView: View {
 
     private func splitLayout(geo: GeometryProxy) -> some View {
         let leftWidth   = min(geo.size.width * 0.42, 460.0)
-        let safeTop     = geo.safeAreaInsets.top
+        // Margem superior: garante que a UI fique abaixo da barra do sistema/Playgrounds
+        // para os botões serem clicáveis (fullscreen sem sobreposição).
+        let safeTop     = max(geo.safeAreaInsets.top, 56)
         let safeBottom  = geo.safeAreaInsets.bottom
 
         return HStack(spacing: 0) {
             if isSidebarVisible {
-                LeftPanelView(vm: vm)
+                LeftPanelView(vm: vm, isSidebarVisible: $isSidebarVisible, topPadding: safeTop)
                     .frame(width: leftWidth)
-                    .padding(.top, safeTop)
-                    .transition(.move(edge: .leading))
+                    .transition(.move(edge: .leading).combined(with: .opacity))
             }
 
-            ZStack(alignment: .bottom) {
-                canvasArea
-                BottomToolbarView(vm: vm)
-                    .padding(.bottom, safeBottom)
+            ZStack(alignment: .topLeading) {
+                ZStack(alignment: .bottom) {
+                    canvasArea
+                    BottomToolbarView(vm: vm)
+                        .padding(.bottom, safeBottom)
+                }
+
+                if !isSidebarVisible {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            isSidebarVisible = true
+                        }
+                    } label: {
+                        Image(systemName: "sidebar.left")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.white.opacity(0.6))
+                            .frame(width: 36, height: 36)
+                    }
+                    .padding(.leading, 12)
+                    .padding(.top, safeTop)
+                    .contentShape(Rectangle())
+                    .zIndex(50)
+                }
             }
         }
+        .animation(.easeInOut(duration: 0.25), value: isSidebarVisible)
     }
 
     private func compactLayout(geo: GeometryProxy) -> some View {
@@ -101,7 +123,8 @@ struct ContentView: View {
 struct TopNavBar: View {
     @ObservedObject var vm: EcosystemViewModel
     @Binding var isSidebarVisible: Bool
-    @State private var showExitAlert = false
+    @State private var showCloseAlert = false
+    @State private var showWaitForPhaseAlert = false
 
     private var title: String {
         switch vm.phase {
@@ -116,11 +139,11 @@ struct TopNavBar: View {
             // Left buttons
             HStack(spacing: 4) {
                 navButton(icon: "xmark") {
-                    showExitAlert = true
+                    showCloseAlert = true
                 }
                 navButton(icon: "sidebar.left") {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        isSidebarVisible.toggle()
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        isSidebarVisible = false
                     }
                 }
             }
@@ -128,9 +151,19 @@ struct TopNavBar: View {
 
             Spacer()
 
-            // Title with phase arrows
+            // Phase passer: title + left/right chevrons
             HStack(spacing: 10) {
-                navButton(icon: "chevron.left",  action: {})
+                Button {
+                    if vm.hasPreviousPhase {
+                        vm.goToPreviousPhase()
+                    }
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.white.opacity(vm.hasPreviousPhase ? 0.6 : 0.25))
+                        .frame(width: 36, height: 36)
+                }
+                .disabled(!vm.hasPreviousPhase)
 
                 Text(title)
                     .font(.system(size: 13, weight: .medium))
@@ -138,7 +171,18 @@ struct TopNavBar: View {
                     .lineLimit(1)
                     .animation(.easeInOut(duration: 0.5), value: vm.phase)
 
-                navButton(icon: "chevron.right", action: {})
+                Button {
+                    if vm.phaseCompleted {
+                        vm.advancePhase()
+                    } else {
+                        showWaitForPhaseAlert = true
+                    }
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.white.opacity(0.6))
+                        .frame(width: 36, height: 36)
+                }
             }
 
             Spacer()
@@ -157,13 +201,18 @@ struct TopNavBar: View {
                 .fill(Color.white.opacity(0.1))
                 .frame(height: 1)
         }
-        .alert("Exit App?", isPresented: $showExitAlert) {
+        .alert("Close app?", isPresented: $showCloseAlert) {
             Button("Cancel", role: .cancel) {}
-            Button("Exit", role: .destructive) {
+            Button("Close", role: .destructive) {
                 exit(0)
             }
         } message: {
-            Text("Are you sure you want to close the app?")
+            Text("Do you want to exit the application?")
+        }
+        .alert("Wait for the phase to complete", isPresented: $showWaitForPhaseAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Complete the current phase before advancing. The \"Next Phase\" or \"Restart\" button will appear in the bottom toolbar when you can proceed.")
         }
     }
 
@@ -175,7 +224,6 @@ struct TopNavBar: View {
                 .frame(width: 36, height: 36)
         }
     }
-    
 }
 
 // MARK: - Ecosystem Background

@@ -4,10 +4,16 @@ import SwiftUI
 
 struct LeftPanelView: View {
     @ObservedObject var vm: EcosystemViewModel
-    @State private var isSidebarVisible: Bool = true
+    @Binding var isSidebarVisible: Bool
+    var topPadding: CGFloat = 0
+
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 0) {
+                // Empurra o conteúdo para baixo da barra do sistema,
+                // mas o fundo escuro cobre a área inteira até o topo.
+//                Color.clear.frame(height: topPadding)
+
                 TopNavBar(vm: vm, isSidebarVisible: $isSidebarVisible)
                 
                 CharacterBubble(phase: vm.phase)
