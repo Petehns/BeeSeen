@@ -30,6 +30,9 @@ let package = Package(
                 .landscapeRight,
                 .landscapeLeft,
                 .portraitUpsideDown(.when(deviceFamilies: [.pad]))
+            ],
+            capabilities: [
+                .microphone(purposeString: "BeeSeen would like to access your microphone to complete challenges")
             ]
         )
     ],
@@ -42,5 +45,5 @@ let package = Package(
             ]
         )
     ],
-    swiftLanguageVersions: [.v6]
+    swiftLanguageVersions: [.version("6")]
 )

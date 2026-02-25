@@ -1,4 +1,6 @@
 import SwiftUI
+import UniformTypeIdentifiers
+import AVFoundation
 
 // MARK: - Left Panel Root
 
@@ -40,9 +42,16 @@ struct LeftPanelView: View {
     @ViewBuilder
     private var phaseContent: some View {
         switch vm.phase {
-        case .abundance: Phase1NarrativeView()
-        case .decline:   Phase2NarrativeView(vm: vm)
-        case .recovery:  Phase3NarrativeView(vm: vm)
+        case .abundance:
+            Phase1ImportanceView()
+        case .decline:
+            Phase2DeclineCausesView(vm: vm)
+        case .recovery:
+            if vm.currentChallengeIndex >= 4 {
+                PhaseFinalSynthesisView(vm: vm)
+            } else {
+                Phase3ChallengesView(vm: vm)
+            }
         }
     }
 }
@@ -130,11 +139,11 @@ struct CharacterBubble: View {
     private var message: LocalizedStringKey {
         switch phase {
         case .abundance:
-            return "Hello! I'm **Natu**, your ecosystem guide. Right now, everything is in **perfect balance**. Watch carefully — this harmony is more fragile than it looks."
+            return "I'm **Natu**, your guide. Here, bees don't just make honey — they **connect** flowers, turn pollen into fruit, and sustain what grows. Watch the field; this balance is precious."
         case .decline:
-            return "Something is **breaking down**. Do you see it? The pesticides are rising and the bees are disappearing. One thing pulling another."
+            return "Something changed. The air grew heavier, the flowers fewer. Some bees never came back. The decline has many causes — let's see what is at play."
         case .recovery:
-            return "The ecosystem needs **your help**. You can't control the bees directly — but you can create the conditions they need to come back."
+            return "Your choices now shape the ecosystem. Each challenge reflects a real factor: pesticides, habitat, diversity, climate. Test the balance."
         }
     }
 
@@ -156,42 +165,50 @@ struct CharacterBubble: View {
     }
 }
 
-// MARK: - Phase 1: Abundance Narrative
+// MARK: - Phase 1 — The Importance of Bees
 
-struct Phase1NarrativeView: View {
+struct Phase1ImportanceView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
+            sectionTitle("The importance of bees")
+
             paragraph(
-                "As you can see, the ecosystem is **flourishing**. Bees move freely through their habitat, flowers bloom at full health, and biodiversity is at its peak."
+                "Bees don't just make honey. They **connect** flowers. They turn pollen into fruit and seed. They sustain what grows — and what we eat."
             )
 
             paragraph(
-                "Bees are one of nature's most critical **pollinators**. Without them, flowers cannot reproduce — and entire food chains begin to collapse."
+                "**Pollination** lets plants produce fruits and seeds. A large share of our food depends on this process. Without bees, biodiversity drops and food production is at risk."
             )
 
             CalloutBox(
-                text: "Watch the **pollen particles** drifting upward. Each one represents the invisible work bees do every single day.",
+                text: "On the right, the field is alive: bees pollinate, flowers bloom. No challenge yet — just watch how the system works.",
                 color: .green
             )
 
             paragraph(
-                "This balance is **fragile**. In a few moments, something will change. Notice how each element depends on the others — there are no isolated parts in an ecosystem."
+                "Science tells us: cross-pollination, food security, and ecological balance all rely on healthy pollinators. This phase is contemplative — take it in."
             )
 
-            footerNote("The simulation will transition to Phase 2 automatically.")
+            footerNote("When ready, use the phase controls to move to the next part.")
         }
     }
 }
 
-// MARK: - Phase 2: Decline Narrative
+// MARK: - Phase 2 — The Decline of Bees
 
-struct Phase2NarrativeView: View {
+struct Phase2DeclineCausesView: View {
     @ObservedObject var vm: EcosystemViewModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
+            sectionTitle("The decline of bees")
+
             paragraph(
-                "Pesticide levels are rising and **bees are disappearing**. As the bee population falls below 30%, flower health begins to decline — this is the cascade effect."
+                "Something changed in the field. The air grew **denser**. The flowers grew fewer. Some bees did not return."
+            )
+
+            paragraph(
+                "The decline is **multifactorial**: overuse of pesticides, loss of habitat and forest, climate change, and monoculture that reduces floral diversity."
             )
 
             MetricsPanel(
@@ -204,69 +221,295 @@ struct Phase2NarrativeView: View {
             )
 
             CalloutBox(
-                text: "When bee population drops below **20%**, the ecosystem enters a critical state and Phase 3 begins.",
+                text: "When the system reaches a critical point, the **interactive challenges** begin. You will test different choices and see their impact.",
                 color: Color(red: 0.75, green: 0.35, blue: 0.25)
             )
 
             paragraph(
-                "This is a **systemic collapse**. Each element affects the others in a chain reaction. Nothing collapses alone."
+                "What you see on the right — fewer bees, weaker trees, haze — reflects these pressures. The next phase is where you can try to shift the balance."
             )
         }
     }
 }
 
-// MARK: - Phase 3: Recovery Narrative
+// MARK: - Phase 3 — Interactive Challenges (left panel only)
 
-struct Phase3NarrativeView: View {
+struct Phase3ChallengesView: View {
+    @ObservedObject var vm: EcosystemViewModel
+    @State private var selectedChoice: String? = nil
+    @State private var hasActed: Bool = false
+    @State private var dropZoneTargeted: Bool = false
+    @State private var isListeningForBlow: Bool = false
+    @StateObject private var blowDetector = BlowMicDetector()
+
+    private var index: Int { vm.currentChallengeIndex }
+    private var challengeTitle: String {
+        switch index {
+        case 0: return "Challenge 1 — Pesticides"
+        case 1: return "Challenge 2 — Habitat loss"
+        case 2: return "Challenge 3 — Floral diversity"
+        case 3: return "Challenge 4 — Climate"
+        default: return "Challenge"
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            sectionTitle(challengeTitle)
+
+            challengeSituation
+            if !hasActed {
+                choiceSection
+                actionButton
+            } else {
+                consequenceSection
+                educationalImpact
+                Button {
+                    selectedChoice = nil
+                    hasActed = false
+                    vm.advanceToNextChallenge()
+                } label: {
+                    Text("Next challenge")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(RoundedRectangle(cornerRadius: 10).fill(Color(red: 0.22, green: 0.48, blue: 0.68)))
+                }
+            }
+        }
+        .onChange(of: vm.currentChallengeIndex) { _ in
+            selectedChoice = nil
+            hasActed = false
+            isListeningForBlow = false
+            blowDetector.stop()
+        }
+    }
+
+    @ViewBuilder private var challengeSituation: some View {
+        switch index {
+        case 0:
+            paragraph("Pesticide levels have risen. Some bees are getting lost. **What balance do you want to test?**")
+        case 1:
+            paragraph("Part of the forest has been removed. Exposed soil, fewer refuges. **Preserve or clear?**")
+        case 2:
+            paragraph("Only one type of plant is being grown. **Diverse or monoculture?**")
+        case 3:
+            paragraph("Average temperature is rising. Flowers wilt; the sun is harsh. **Stable or warming?**")
+        default:
+            paragraph("Choose and act.")
+        }
+    }
+
+    @ViewBuilder private var choiceSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Drag to execution area:")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.white.opacity(0.5))
+            HStack(spacing: 8) {
+                choiceCard(code: choiceA, choice: "A")
+                choiceCard(code: choiceB, choice: "B")
+            }
+            // Área vazia para o usuário soltar a escolha (drag and drop)
+            executionDropZone
+        }
+    }
+
+    @ViewBuilder private var executionDropZone: some View {
+        let hasDropped = selectedChoice != nil
+        ZStack {
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.white.opacity(dropZoneTargeted ? 0.12 : 0.06))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .strokeBorder(
+                            dropZoneTargeted ? Color.white.opacity(0.35) : Color.white.opacity(0.12),
+                            lineWidth: 1.5
+                        )
+                )
+                .frame(minHeight: 52)
+            if let choice = selectedChoice {
+                Text(choice == "A" ? choiceA : choiceB)
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.9))
+                    .multilineTextAlignment(.center)
+            } else {
+                Text("Drop choice here")
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundColor(.white.opacity(0.35))
+            }
+        }
+        .onDrop(of: [.plainText], isTargeted: $dropZoneTargeted) { providers in
+            guard let provider = providers.first else { return false }
+            provider.loadObject(ofClass: NSString.self) { obj, _ in
+                guard let s = obj as? String, s == "A" || s == "B" else { return }
+                DispatchQueue.main.async { selectedChoice = s }
+            }
+            return true
+        }
+    }
+
+    private var choiceA: String {
+        switch index {
+        case 0: return "environment.pesticideLevel = .low"
+        case 1: return "environment.forest = .preserve"
+        case 2: return "environment.plants = .diverse"
+        case 3: return "environment.climate = .stable"
+        default: return ".optionA"
+        }
+    }
+
+    private var choiceB: String {
+        switch index {
+        case 0: return "environment.pesticideLevel = .high"
+        case 1: return "environment.forest = .clear"
+        case 2: return "environment.plants = .monoculture"
+        case 3: return "environment.climate = .warming"
+        default: return ".optionB"
+        }
+    }
+
+    private func choiceCard(code: String, choice: String) -> some View {
+        let isDropped = selectedChoice == choice
+        return Text(code)
+            .font(.system(size: 10, weight: .medium, design: .monospaced))
+            .foregroundColor(.white.opacity(0.85))
+            .lineLimit(2)
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.1)))
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .strokeBorder(isDropped ? Color.green.opacity(0.6) : Color.clear, lineWidth: 2)
+            )
+            .draggable(choice)
+    }
+
+    @ViewBuilder private var actionButton: some View {
+        let actionLabel: String = {
+            switch index {
+            case 0: return "Blow into mic to activate"
+            case 1: return "Hold button to restore"
+            case 2: return "Shake iPad to spread seeds"
+            case 3: return "Keep circle in balance"
+            default: return "Activate"
+            }
+        }()
+        let needsBlow = (index == 0)
+        Button {
+            guard selectedChoice != nil else { return }
+            if needsBlow {
+                if isListeningForBlow {
+                    return
+                }
+                isListeningForBlow = true
+                blowDetector.start { success in
+                    DispatchQueue.main.async {
+                        isListeningForBlow = false
+                        if success { hasActed = true }
+                    }
+                }
+            } else {
+                hasActed = true
+            }
+        } label: {
+            HStack {
+                Image(systemName: isListeningForBlow ? "waveform" : "play.circle.fill")
+                Text(isListeningForBlow ? "Listening… blow now" : actionLabel)
+                    .font(.system(size: 12, weight: .medium))
+            }
+            .foregroundColor(.white.opacity(selectedChoice != nil ? 1 : 0.4))
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .background(RoundedRectangle(cornerRadius: 8).fill(isListeningForBlow ? Color.blue.opacity(0.25) : Color.white.opacity(0.12)))
+        }
+        .disabled(selectedChoice == nil)
+    }
+
+    @ViewBuilder private var consequenceSection: some View {
+        let isGood = selectedChoice == "A"
+        let text: String = {
+            switch index {
+            case 0: return isGood ? "The air clears. Flight finds its way again." : "The air weighs heavy. The field falls silent."
+            case 1: return isGood ? "Where there is shelter, there is life." : "Without shelter, flight does not stay."
+            case 2: return isGood ? "Diversity sustains flight." : "When all is the same, too much depends on too little."
+            case 3: return isGood ? "Balance keeps time in tune." : "When time is off, the encounter fails."
+            default: return ""
+            }
+        }()
+        CalloutBox(text: LocalizedStringKey(text), color: isGood ? .green : Color(red: 0.75, green: 0.35, blue: 0.25))
+    }
+
+    @ViewBuilder private var educationalImpact: some View {
+        let text: String = {
+            switch index {
+            case 0: return "Certain pesticides affect bees’ nervous systems; they lose the ability to navigate. That can wipe out whole colonies."
+            case 1: return "Bees need places to nest. Habitat loss reduces reproduction; landscape fragmentation weakens colonies."
+            case 2: return "A varied diet strengthens bees. Monoculture cuts the nutrients available. Diverse ecosystems are more resilient."
+            case 3: return "Climate change shifts flowering times. Bees can emerge when flowers are not ready. That mismatch hurts pollination."
+            default: return ""
+            }
+        }()
+        HStack(alignment: .top, spacing: 10) {
+            RoundedRectangle(cornerRadius: 2)
+                .fill(Color.teal)
+                .frame(width: 3)
+            Text("Impact: \(text)")
+                .font(.system(size: 13))
+                .foregroundColor(.white.opacity(0.78))
+                .lineSpacing(3)
+        }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 12)
+        .background(RoundedRectangle(cornerRadius: 8).fill(Color.teal.opacity(0.10)))
+    }
+}
+
+// MARK: - Phase Final — Synthesis
+
+struct PhaseFinalSynthesisView: View {
     @ObservedObject var vm: EcosystemViewModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
+            sectionTitle("Synthesis")
+
             paragraph(
-                "The ecosystem is in critical state. Your actions can create the conditions for recovery — but the bees will return on their own **only when the system is ready**."
-            )
-
-            VStack(alignment: .leading, spacing: 12) {
-                InstructionRow(
-                    symbol:      "◻",
-                    symbolColor: Color(white: 0.75),
-                    title:       "Tap gray clouds",
-                    description: "Each tap removes pesticide contamination. Reducing pesticide levels is the first step to bee recovery."
-                )
-                InstructionRow(
-                    symbol:      "●",
-                    symbolColor: .green,
-                    title:       "Tap to plant flowers",
-                    description: "New flowers increase biodiversity, which accelerates the rate at which bees recover."
-                )
-                InstructionRow(
-                    symbol:      "▬",
-                    symbolColor: Color(red: 0.62, green: 0.42, blue: 0.22),
-                    title:       "Drag habitat blocks",
-                    description: "Place 3 blocks in the Habitat Zone (bottom of the canvas) to unlock a 1.7× recovery multiplier."
-                )
-            }
-
-            MetricsPanel(
-                entries: [
-                    .init(label: "Bees",       value: vm.beePopulation,          color: Color(hue: 0.13, saturation: 0.9, brightness: 0.9)),
-                    .init(label: "Diversity",  value: vm.biodiversity,           color: .teal),
-                    .init(label: "Clean air",  value: 1.0 - vm.pesticideLevel,   color: .green),
-                    .init(label: "Habitat",    value: Double(vm.placedHabitatCount) / 3.0, color: Color(red: 0.62, green: 0.42, blue: 0.22))
-                ]
+                "The field you see is a **reflection of the choices** made. More or less life, depending on those decisions."
             )
 
             CalloutBox(
-                text: "You planted **\(vm.plantedFlowers.count)** flower\(vm.plantedFlowers.count == 1 ? "" : "s") and placed **\(vm.placedHabitatCount)/3** habitat blocks.",
-                color: .teal
+                text: "Small decisions shape large ecosystems. Balance is not automatic — it is **built**.",
+                color: Color(red: 0.22, green: 0.48, blue: 0.68)
             )
 
-            footerNote("Bees return automatically when the ecosystem is healthy again.")
+            paragraph(
+                "You tested pesticides, habitat, diversity, and climate. Each factor is real. What happens next in the simulation is up to how the system responds on the right."
+            )
+
+            Button {
+                vm.advancePhase()
+            } label: {
+                Text("Restart journey")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(RoundedRectangle(cornerRadius: 10).fill(Color(red: 0.22, green: 0.48, blue: 0.68)))
+            }
         }
     }
 }
 
 // MARK: - Shared Panel Components
+
+private func sectionTitle(_ text: String) -> some View {
+    Text(text)
+        .font(.system(size: 11, weight: .semibold))
+        .foregroundColor(.white.opacity(0.5))
+        .textCase(.uppercase)
+        .kerning(0.8)
+}
 
 private func paragraph(_ text: LocalizedStringKey) -> some View {
     Text(text)
@@ -382,5 +625,100 @@ struct MetricsPanel: View {
                         .strokeBorder(Color.white.opacity(0.06), lineWidth: 1)
                 )
         )
+    }
+}
+
+// MARK: - Blow-into-mic detector (Challenge 1)
+
+@MainActor
+final class BlowMicDetector: ObservableObject {
+    private var engine: AVAudioEngine?
+    private var completion: ((Bool) -> Void)?
+    private var highLevelCount: Int = 0
+    private let threshold: Float = 0.25
+    private let requiredCount: Int = 8
+    private var timeoutTask: Task<Void, Never>?
+
+    func start(completion: @escaping @Sendable (Bool) -> Void) {
+        stop()
+        self.completion = completion
+
+        // Pede permissão primeiro; só inicia o engine se concedida
+        AVAudioSession.sharedInstance().requestRecordPermission { [weak self] granted in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                guard granted else {
+                    self.completion?(false)
+                    self.completion = nil
+                    return
+                }
+                self.startEngine()
+            }
+        }
+    }
+
+    private func startEngine() {
+        let session = AVAudioSession.sharedInstance()
+        do {
+            try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetooth])
+            try session.setActive(true)
+        } catch {
+            completion?(false)
+            completion = nil
+            return
+        }
+        let eng = AVAudioEngine()
+        let input = eng.inputNode
+        let format = input.outputFormat(forBus: 0)
+        highLevelCount = 0
+        input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
+            let channelData = buffer.floatChannelData?[0]
+            let frameLength = Int(buffer.frameLength)
+            var sum: Float = 0
+            if let channelData {
+                for i in 0..<frameLength { sum += abs(channelData[i]) }
+            }
+            let avg = frameLength > 0 ? sum / Float(frameLength) : 0
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if avg > self.threshold {
+                    self.highLevelCount += 1
+                    if self.highLevelCount >= self.requiredCount {
+                        self.triggerSuccess(success: true)
+                    }
+                } else {
+                    self.highLevelCount = 0
+                }
+            }
+        }
+        do {
+            try eng.start()
+            self.engine = eng
+        } catch {
+            completion?(false)
+            completion = nil
+            return
+        }
+        timeoutTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 8_000_000_000)
+            self?.triggerSuccess(success: false)
+        }
+    }
+
+    private func triggerSuccess(success: Bool) {
+        timeoutTask?.cancel()
+        timeoutTask = nil
+        let comp = completion
+        stop()
+        comp?(success)
+    }
+
+    func stop() {
+        timeoutTask?.cancel()
+        timeoutTask = nil
+        engine?.inputNode.removeTap(onBus: 0)
+        engine?.stop()
+        engine = nil
+        completion = nil
     }
 }

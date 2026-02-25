@@ -15,8 +15,8 @@ struct BottomToolbarView: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            // Left: Status / Pause circle button
-            Button(action: { vm.togglePause() }) {
+            // Left: Time speed (1x, 2x, 3x) circle button
+            Button(action: { vm.cycleTimeSpeed() }) {
                 ZStack {
                     Circle()
                         .fill(.ultraThinMaterial)
@@ -25,9 +25,9 @@ struct BottomToolbarView: View {
                             Circle()
                                 .strokeBorder(Color.white.opacity(0.15), lineWidth: 0.5)
                         )
-                    Image(systemName: vm.isPaused ? "play.fill" : "timer")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.white.opacity(0.85))
+                    Text("\(vm.timeSpeedMultiplier)x")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.9))
                 }
             }
             .padding(.leading, 24)

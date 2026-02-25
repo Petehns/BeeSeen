@@ -31,6 +31,10 @@ final class EcosystemViewModel: ObservableObject {
     @Published var isPaused: Bool       = false
     @Published var showHint: Bool       = false
     @Published var phaseCompleted: Bool = false
+    /// Index 0–3 = challenges 1–4; 4 = synthesis (Phase Final). Left panel only.
+    @Published var currentChallengeIndex: Int = 0
+    /// Simulation speed: 1, 2, or 3 (1x, 2x, 3x).
+    @Published var timeSpeedMultiplier: Int = 1
 
     var hintText: String {
         switch phase {
@@ -54,6 +58,12 @@ final class EcosystemViewModel: ObservableObject {
         }
     }
 
+    /// Cycles time speed: 1x → 2x → 3x → 1x.
+    func cycleTimeSpeed() {
+        timeSpeedMultiplier = (timeSpeedMultiplier % 3) + 1
+        triggerHaptic(style: .light)
+    }
+
     // MARK: - Internal
 
     private let dt: Double = 0.05
@@ -73,9 +83,12 @@ final class EcosystemViewModel: ObservableObject {
         timerTask?.cancel()
         timerTask = Task { [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 50_000_000) // ~20 fps
+                try? await Task.sleep(nanoseconds: 50_000_000) // ~20 fps base
                 guard let self else { return }
-                self.tick()
+                let mult = self.timeSpeedMultiplier
+                for _ in 0..<mult {
+                    self.tick()
+                }
             }
         }
     }
@@ -166,9 +179,16 @@ final class EcosystemViewModel: ObservableObject {
         placedHabitatCount = 0
         balanceRestored    = false
         phaseCompleted     = false
+        currentChallengeIndex = 0
 
         // Re-assign targets so bees head toward remaining flowers
         for i in bees.indices { assignNewTarget(beeIndex: i) }
+    }
+
+    /// Advances to the next interactive challenge (left panel). 0→1→2→3→4 (synthesis).
+    func advanceToNextChallenge() {
+        currentChallengeIndex = min(4, currentChallengeIndex + 1)
+        triggerHaptic(style: .light)
     }
 
     // MARK: - Phase Navigation
