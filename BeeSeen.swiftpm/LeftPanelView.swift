@@ -1,6 +1,7 @@
 import SwiftUI
 import UniformTypeIdentifiers
 import AVFoundation
+import Foundation
 
 // MARK: - Left Panel Root
 
@@ -396,34 +397,37 @@ struct Phase3ChallengesView: View {
             }
         }()
         let needsBlow = (index == 0)
-        Button {
-            guard selectedChoice != nil else { return }
-            if needsBlow {
-                if isListeningForBlow {
-                    return
-                }
-                isListeningForBlow = true
-                blowDetector.start { success in
-                    DispatchQueue.main.async {
-                        isListeningForBlow = false
-                        if success { hasActed = true }
+        VStack(alignment: .leading, spacing: 10) {
+            if needsBlow && isListeningForBlow {
+                BlowMeterView(level: blowDetector.blowLevel)
+            }
+            Button {
+                guard selectedChoice != nil else { return }
+                if needsBlow {
+                    if isListeningForBlow { return }
+                    isListeningForBlow = true
+                    blowDetector.start { success in
+                        DispatchQueue.main.async {
+                            isListeningForBlow = false
+                            if success { hasActed = true }
+                        }
                     }
+                } else {
+                    hasActed = true
                 }
-            } else {
-                hasActed = true
+            } label: {
+                HStack {
+                    Image(systemName: isListeningForBlow && needsBlow ? "waveform" : "play.circle.fill")
+                    Text(isListeningForBlow && needsBlow ? "Assopre até o verde" : actionLabel)
+                        .font(.system(size: 12, weight: .medium))
+                }
+                .foregroundColor(.white.opacity(selectedChoice != nil ? 1 : 0.4))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(RoundedRectangle(cornerRadius: 8).fill(isListeningForBlow ? Color.blue.opacity(0.25) : Color.white.opacity(0.12)))
             }
-        } label: {
-            HStack {
-                Image(systemName: isListeningForBlow ? "waveform" : "play.circle.fill")
-                Text(isListeningForBlow ? "Listening… blow now" : actionLabel)
-                    .font(.system(size: 12, weight: .medium))
-            }
-            .foregroundColor(.white.opacity(selectedChoice != nil ? 1 : 0.4))
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 10)
-            .background(RoundedRectangle(cornerRadius: 8).fill(isListeningForBlow ? Color.blue.opacity(0.25) : Color.white.opacity(0.12)))
+            .disabled(selectedChoice == nil)
         }
-        .disabled(selectedChoice == nil)
     }
 
     @ViewBuilder private var consequenceSection: some View {
@@ -628,22 +632,87 @@ struct MetricsPanel: View {
     }
 }
 
+// MARK: - Medidor de sopro (vermelho → amarelo → verde)
+
+struct BlowMeterView: View {
+    let level: Float
+
+    /// Cor do preenchimento: vermelho (baixo) → amarelo (médio) → verde (concluído).
+    private var zoneColor: Color {
+        if level < 0.2 { return Color.red }
+        if level < 0.4 { return Color.yellow }
+        return Color.green
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Assopre no microfone")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.white.opacity(0.6))
+            GeometryReader { geo in
+                let w = geo.size.width
+                ZStack(alignment: .leading) {
+                    // Faixas: vermelho 20% | amarelo 20% | verde 60%
+                    HStack(spacing: 0) {
+                        Rectangle().fill(Color.red.opacity(0.7)).frame(width: w * 0.2)
+                        Rectangle().fill(Color.yellow.opacity(0.7)).frame(width: w * 0.2)
+                        Rectangle().fill(Color.green.opacity(0.7)).frame(width: w * 0.6)
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    // Preenchimento até o nível atual
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(zoneColor)
+                        .frame(width: max(0, w * CGFloat(level)))
+                }
+            }
+            .frame(height: 22)
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
+            )
+            HStack(spacing: 12) {
+                label("Baixo", color: .red)
+                label("Médio", color: .yellow)
+                label("Concluído", color: .green)
+            }
+            .font(.system(size: 9, weight: .medium))
+        }
+    }
+
+    private func label(_ text: String, color: Color) -> some View {
+        HStack(spacing: 4) {
+            Circle().fill(color).frame(width: 6, height: 6)
+            Text(text).foregroundColor(.white.opacity(0.7))
+        }
+    }
+}
+
 // MARK: - Blow-into-mic detector (Challenge 1)
+
+/// Buffer thread-safe: só a thread de áudio escreve; o MainActor lê (evita EXC_BREAKPOINT).
+private final class BlowLevelBuffer: @unchecked Sendable {
+    let lock = NSLock()
+    var rawLevel: Float = 0
+    var greenCount: Int = 0
+    var shouldTriggerSuccess: Bool = false
+}
 
 @MainActor
 final class BlowMicDetector: ObservableObject {
+    @Published var blowLevel: Float = 0
+
     private var engine: AVAudioEngine?
     private var completion: ((Bool) -> Void)?
-    private var highLevelCount: Int = 0
-    private let threshold: Float = 0.25
-    private let requiredCount: Int = 8
+    private let greenThreshold: Float = 0.4
+    private let requiredGreenCount: Int = 10
     private var timeoutTask: Task<Void, Never>?
+    private var pollTask: Task<Void, Never>?
+    private let buffer = BlowLevelBuffer()
 
     func start(completion: @escaping @Sendable (Bool) -> Void) {
         stop()
         self.completion = completion
 
-        // Pede permissão primeiro; só inicia o engine se concedida
         AVAudioSession.sharedInstance().requestRecordPermission { [weak self] granted in
             Task { @MainActor [weak self] in
                 guard let self else { return }
@@ -667,29 +736,37 @@ final class BlowMicDetector: ObservableObject {
             completion = nil
             return
         }
+        buffer.lock.lock()
+        buffer.rawLevel = 0
+        buffer.greenCount = 0
+        buffer.shouldTriggerSuccess = false
+        buffer.lock.unlock()
+        blowLevel = 0
+
         let eng = AVAudioEngine()
         let input = eng.inputNode
         let format = input.outputFormat(forBus: 0)
-        highLevelCount = 0
-        input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
-            let channelData = buffer.floatChannelData?[0]
-            let frameLength = Int(buffer.frameLength)
+        let threshold = greenThreshold
+        let required = requiredGreenCount
+        let buf = buffer
+
+        input.installTap(onBus: 0, bufferSize: 1024, format: format) { audioBuffer, _ in
+            let frameLength = Int(audioBuffer.frameLength)
+            guard frameLength > 0,
+                  let channelData = audioBuffer.floatChannelData?[0] else { return }
             var sum: Float = 0
-            if let channelData {
-                for i in 0..<frameLength { sum += abs(channelData[i]) }
+            for i in 0..<frameLength { sum += abs(channelData[i]) }
+            let avg = sum / Float(frameLength)
+            let normalized = min(1.0, avg / 0.5)
+            buf.lock.lock()
+            buf.rawLevel = normalized
+            if normalized >= threshold {
+                buf.greenCount += 1
+                if buf.greenCount >= required { buf.shouldTriggerSuccess = true }
+            } else {
+                buf.greenCount = 0
             }
-            let avg = frameLength > 0 ? sum / Float(frameLength) : 0
-            Task { @MainActor [weak self] in
-                guard let self else { return }
-                if avg > self.threshold {
-                    self.highLevelCount += 1
-                    if self.highLevelCount >= self.requiredCount {
-                        self.triggerSuccess(success: true)
-                    }
-                } else {
-                    self.highLevelCount = 0
-                }
-            }
+            buf.lock.unlock()
         }
         do {
             try eng.start()
@@ -699,26 +776,59 @@ final class BlowMicDetector: ObservableObject {
             completion = nil
             return
         }
+
         timeoutTask = Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 8_000_000_000)
             self?.triggerSuccess(success: false)
         }
+
+        pollTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            while !Task.isCancelled, self.engine != nil {
+                try? await Task.sleep(nanoseconds: 50_000_000)
+                self.pollLevel()
+            }
+        }
+    }
+
+    private func pollLevel() {
+        buffer.lock.lock()
+        let level = buffer.rawLevel
+        let trigger = buffer.shouldTriggerSuccess
+        if trigger { buffer.shouldTriggerSuccess = false }
+        buffer.lock.unlock()
+        blowLevel = level
+        if trigger { triggerSuccess(success: true) }
     }
 
     private func triggerSuccess(success: Bool) {
+        pollTask?.cancel()
+        pollTask = nil
         timeoutTask?.cancel()
         timeoutTask = nil
         let comp = completion
-        stop()
+        completion = nil
         comp?(success)
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 100_000_000)
+            self?.stopEngine()
+        }
     }
 
     func stop() {
+        pollTask?.cancel()
+        pollTask = nil
         timeoutTask?.cancel()
         timeoutTask = nil
-        engine?.inputNode.removeTap(onBus: 0)
-        engine?.stop()
+        stopEngine()
+    }
+
+    private func stopEngine() {
+        guard let eng = engine else { return }
         engine = nil
         completion = nil
+        blowLevel = 0
+        eng.inputNode.removeTap(onBus: 0)
+        eng.stop()
     }
 }
