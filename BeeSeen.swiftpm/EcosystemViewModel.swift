@@ -35,6 +35,8 @@ final class EcosystemViewModel: ObservableObject {
     @Published var currentChallengeIndex: Int = 0
     /// Simulation speed: 1, 2, or 3 (1x, 2x, 3x).
     @Published var timeSpeedMultiplier: Int = 1
+    /// Outcomes of completed challenges (true = good choice A). Used to derive environment.status.
+    @Published private(set) var challengeOutcomes: [Bool] = []
 
     var hintText: String {
         switch phase {
@@ -180,15 +182,31 @@ final class EcosystemViewModel: ObservableObject {
         balanceRestored    = false
         phaseCompleted     = false
         currentChallengeIndex = 0
+        challengeOutcomes  = []
 
         // Re-assign targets so bees head toward remaining flowers
         for i in bees.indices { assignNewTarget(beeIndex: i) }
     }
 
-    /// Advances to the next interactive challenge (left panel). 0→1→2→3→4 (synthesis).
-    func advanceToNextChallenge() {
+    /// Advances to the next interactive challenge (left panel). Records outcome so environment.status can be derived.
+    func advanceToNextChallenge(goodChoice: Bool) {
+        if currentChallengeIndex < 4 {
+            challengeOutcomes.append(goodChoice)
+        }
         currentChallengeIndex = min(4, currentChallengeIndex + 1)
         triggerHaptic(style: .light)
+    }
+
+    /// Status derived from the model (not set by the user). Optionally include the current test result for display before advancing.
+    func environmentStatusDisplay(includingCurrentGoodChoice current: Bool? = nil) -> String {
+        var outcomes = challengeOutcomes
+        if let c = current { outcomes.append(c) }
+        let good = outcomes.filter { $0 }.count
+        let total = outcomes.count
+        if total == 0 { return ".critical" }
+        if total >= 4 && good == 4 { return ".stable" }
+        if good > 0 { return ".recovering" }
+        return ".critical"
     }
 
     // MARK: - Phase Navigation

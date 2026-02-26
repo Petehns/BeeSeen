@@ -57,70 +57,18 @@ struct LeftPanelView: View {
     }
 }
 
-// MARK: - Character Avatar (geometric)
+// MARK: - Character Avatar
 
 struct CharacterAvatar: View {
     let phase: EcosystemPhase
 
-    private var bgColor: Color {
-        switch phase {
-        case .abundance: return Color(red: 0.22, green: 0.48, blue: 0.68)
-        case .decline:   return Color(red: 0.52, green: 0.28, blue: 0.28)
-        case .recovery:  return Color(red: 0.22, green: 0.48, blue: 0.68)
-        }
-    }
-
     var body: some View {
-        ZStack {
-            Circle()
-                .fill(bgColor)
-                .frame(width: 52, height: 52)
-
-            // Body
-            Circle()
-                .fill(Color(red: 0.32, green: 0.60, blue: 0.32))
-                .frame(width: 28, height: 28)
-                .offset(y: 5)
-
-            // Head
-            Circle()
-                .fill(Color(red: 0.38, green: 0.66, blue: 0.38))
-                .frame(width: 20, height: 20)
-                .offset(y: -8)
-
-            // Left ear
-            Circle()
-                .fill(Color(red: 0.88, green: 0.52, blue: 0.58))
-                .frame(width: 7, height: 7)
-                .offset(x: -9, y: -14)
-
-            // Right ear
-            Circle()
-                .fill(Color(red: 0.88, green: 0.52, blue: 0.58))
-                .frame(width: 7, height: 7)
-                .offset(x: 9, y: -14)
-
-            // Eyes
-            Circle()
-                .fill(Color.white)
-                .frame(width: 5, height: 5)
-                .offset(x: -3.5, y: -9)
-            Circle()
-                .fill(Color.white)
-                .frame(width: 5, height: 5)
-                .offset(x: 3.5, y: -9)
-
-            // Pupils
-            Circle()
-                .fill(Color(white: 0.15))
-                .frame(width: 2.5, height: 2.5)
-                .offset(x: -3, y: -9)
-            Circle()
-                .fill(Color(white: 0.15))
-                .frame(width: 2.5, height: 2.5)
-                .offset(x: 4, y: -9)
-        }
-        .animation(.easeInOut(duration: 0.5), value: phase)
+        Image("Michelle")
+            .resizable()
+            .scaledToFill()
+            .frame(width: 52, height: 52)
+            .clipShape(Circle())
+            .animation(.easeInOut(duration: 0.5), value: phase)
     }
 }
 
@@ -140,11 +88,11 @@ struct CharacterBubble: View {
     private var message: LocalizedStringKey {
         switch phase {
         case .abundance:
-            return "I'm **Natu**, your guide. Here, bees don't just make honey — they **connect** flowers, turn pollen into fruit, and sustain what grows. Watch the field; this balance is precious."
+            return "I'm **Michelle**, an environmental scientist. For years, I've been studying biodiversity in forest ecosystems. Recently, I began noticing something unsettling — fewer plants regenerating, fewer fruits forming. When I traced the pattern back, one connection stood out: the bees were disappearing. What you see here is the balance before that decline begins."
         case .decline:
-            return "Something changed. The air grew heavier, the flowers fewer. Some bees never came back. The decline has many causes — let's see what is at play."
+            return "The model is running. The readings match what we see in the field: the system is under stress. My simulation has flagged it — **environment.status = .critical**."
         case .recovery:
-            return "Your choices now shape the ecosystem. Each challenge reflects a real factor: pesticides, habitat, diversity, climate. Test the balance."
+            return "I need your help to **test the model**. We'll change one variable at a time, run the simulation, and see how it responds. The status you see is the diagnosis — not something we set by hand."
         }
     }
 
@@ -174,43 +122,56 @@ struct Phase1ImportanceView: View {
             sectionTitle("The importance of bees")
 
             paragraph(
-                "Bees don't just make honey. They **connect** flowers. They turn pollen into fruit and seed. They sustain what grows — and what we eat."
+                "Bees don't just make honey.\nThey connect flowers.\nThey turn pollen into fruit and seed.\nThey sustain what grows — and what we eat."
             )
 
             paragraph(
-                "**Pollination** lets plants produce fruits and seeds. A large share of our food depends on this process. Without bees, biodiversity drops and food production is at risk."
+                "Pollination allows plants to reproduce. Nearly **75%** of the world's flowering plants depend, at least in part, on animal pollinators. Around **one third** of global food production relies on this process."
+            )
+
+            paragraph(
+                "Without bees, biodiversity declines.\nFood systems weaken.\nEcosystems lose resilience."
             )
 
             CalloutBox(
-                text: "On the right, the field is alive: bees pollinate, flowers bloom. No challenge yet — just watch how the system works.",
+                text: "On the right, the field is alive: bees pollinate, flowers bloom, fruits begin to form. This is the baseline — the state my simulation will later compare against.",
                 color: .green
             )
 
             paragraph(
-                "Science tells us: cross-pollination, food security, and ecological balance all rely on healthy pollinators. This phase is contemplative — take it in."
+                "Cross-pollination strengthens genetic diversity. Genetic diversity strengthens ecosystems. And strong ecosystems sustain human life."
             )
+
+            paragraph("Watch closely.\nThis is balance.\nAnd balance is not automatic.")
 
             footerNote("When ready, use the phase controls to move to the next part.")
         }
     }
 }
 
-// MARK: - Phase 2 — The Decline of Bees
+// MARK: - Phase 2 — The Decline and the Simulation
 
 struct Phase2DeclineCausesView: View {
     @ObservedObject var vm: EcosystemViewModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            sectionTitle("The decline of bees")
+            sectionTitle("The decline and the simulation")
 
             paragraph(
                 "Something changed in the field. The air grew **denser**. The flowers grew fewer. Some bees did not return."
             )
 
             paragraph(
-                "The decline is **multifactorial**: overuse of pesticides, loss of habitat and forest, climate change, and monoculture that reduces floral diversity."
+                "I built a **simulation** that models the main environmental variables: pesticide load, forest cover, plant diversity, and climate. The model doesn’t invent the decline — it reflects it."
             )
+
+            paragraph(
+                "When those variables push the system past a threshold, the simulation **diagnoses** the state. We don’t set that by hand; the model derives it from the inputs."
+            )
+
+            SimulationStatusLine(status: ".critical")
+                .padding(.vertical, 4)
 
             MetricsPanel(
                 entries: [
@@ -222,12 +183,8 @@ struct Phase2DeclineCausesView: View {
             )
 
             CalloutBox(
-                text: "When the system reaches a critical point, the **interactive challenges** begin. You will test different choices and see their impact.",
+                text: "Next, you’ll help me **test hypotheses**. We’ll adjust one variable, run the simulation, and see how the system — and the diagnosis — respond.",
                 color: Color(red: 0.75, green: 0.35, blue: 0.25)
-            )
-
-            paragraph(
-                "What you see on the right — fewer bees, weaker trees, haze — reflects these pressures. The next phase is where you can try to shift the balance."
             )
         }
     }
@@ -256,19 +213,24 @@ struct Phase3ChallengesView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            if index == 0 {
+                phase3Intro
+            }
             sectionTitle(challengeTitle)
-
             challengeSituation
             if !hasActed {
                 choiceSection
                 actionButton
             } else {
                 consequenceSection
+                michelleInterpretation
                 educationalImpact
+                simulationStatusAfterTest
                 Button {
+                    let good = selectedChoice == "A"
                     selectedChoice = nil
                     hasActed = false
-                    vm.advanceToNextChallenge()
+                    vm.advanceToNextChallenge(goodChoice: good)
                 } label: {
                     Text("Next challenge")
                         .font(.system(size: 13, weight: .semibold))
@@ -287,24 +249,35 @@ struct Phase3ChallengesView: View {
         }
     }
 
+    @ViewBuilder private var phase3Intro: some View {
+        CalloutBox(
+            text: "The simulation is in **critical** state. We’ll test one variable at a time: you choose a value, run the test, and the model will show how the system — and its diagnosis — respond.",
+            color: Color(red: 0.22, green: 0.48, blue: 0.68)
+        )
+        .padding(.bottom, 4)
+    }
+
     @ViewBuilder private var challengeSituation: some View {
         switch index {
         case 0:
-            paragraph("Pesticide levels have risen. Some bees are getting lost. **What balance do you want to test?**")
+            VStack(alignment: .leading, spacing: 10) {
+                paragraph("**Hypothesis:** Pesticides may be disrupting navigation. Bees exposed to certain chemicals lose the ability to find their way back. In the model, we can set the load and observe the outcome.")
+                paragraph("**Test:** Choose a value for the simulation, then run the test (blow into the mic to activate).")
+            }
         case 1:
-            paragraph("Part of the forest has been removed. Exposed soil, fewer refuges. **Preserve or clear?**")
+            paragraph("**Hypothesis:** Habitat loss reduces nesting sites. **Test:** Set the variable and run the action.")
         case 2:
-            paragraph("Only one type of plant is being grown. **Diverse or monoculture?**")
+            paragraph("**Hypothesis:** Monoculture limits nutrition. **Test:** Set the variable and run the action.")
         case 3:
-            paragraph("Average temperature is rising. Flowers wilt; the sun is harsh. **Stable or warming?**")
+            paragraph("**Hypothesis:** Climate shift desynchronizes flowers and bees. **Test:** Set the variable and run the action.")
         default:
-            paragraph("Choose and act.")
+            paragraph("Choose a value and run the test.")
         }
     }
 
     @ViewBuilder private var choiceSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Drag to execution area:")
+            Text("Set variable in simulation:")
                 .font(.system(size: 11, weight: .medium))
                 .foregroundColor(.white.opacity(0.5))
             HStack(spacing: 8) {
@@ -407,10 +380,9 @@ struct Phase3ChallengesView: View {
                     if isListeningForBlow { return }
                     isListeningForBlow = true
                     blowDetector.start { success in
-                        DispatchQueue.main.async {
-                            isListeningForBlow = false
-                            if success { hasActed = true }
-                        }
+                        // Completion is already invoked on the main queue by BlowMicDetector.
+                        isListeningForBlow = false
+                        if success { hasActed = true }
                     }
                 } else {
                     hasActed = true
@@ -442,6 +414,33 @@ struct Phase3ChallengesView: View {
             }
         }()
         CalloutBox(text: LocalizedStringKey(text), color: isGood ? .green : Color(red: 0.75, green: 0.35, blue: 0.25))
+    }
+
+    @ViewBuilder private var michelleInterpretation: some View {
+        let isGood = selectedChoice == "A"
+        let text: String = {
+            switch index {
+            case 0: return isGood
+                ? "Michelle: \"The model confirms it. Lower exposure — navigation holds. Pesticide load is one lever we can actually turn.\""
+                : "Michelle: \"As we suspected. High load and the colony loses its bearings. The simulation is consistent with the field data.\""
+            case 1: return isGood
+                ? "Michelle: \"Shelter matters. The model shows recovery when we preserve habitat.\""
+                : "Michelle: \"Without refuges, the population can’t hold. The diagnosis stays critical.\""
+            case 2: return isGood
+                ? "Michelle: \"Diversity feeds them. The run supports the hypothesis.\""
+                : "Michelle: \"Monoculture weakens the system. One variable, clear effect.\""
+            case 3: return isGood
+                ? "Michelle: \"Stable climate keeps flowers and bees in sync. The model responds as expected.\""
+                : "Michelle: \"Warming desynchronizes the system. We’re seeing it in the data.\""
+            default: return ""
+            }
+        }()
+        CalloutBox(text: LocalizedStringKey(text), color: Color(red: 0.22, green: 0.48, blue: 0.68))
+    }
+
+    @ViewBuilder private var simulationStatusAfterTest: some View {
+        let status = vm.environmentStatusDisplay(includingCurrentGoodChoice: selectedChoice == "A")
+        SimulationStatusLine(status: status)
     }
 
     @ViewBuilder private var educationalImpact: some View {
@@ -482,8 +481,11 @@ struct PhaseFinalSynthesisView: View {
                 "The field you see is a **reflection of the choices** made. More or less life, depending on those decisions."
             )
 
+            SimulationStatusLine(status: vm.environmentStatusDisplay())
+                .padding(.vertical, 4)
+
             CalloutBox(
-                text: "Small decisions shape large ecosystems. Balance is not automatic — it is **built**.",
+                text: "The model’s final diagnosis reflects the variables you set. Small decisions shape large ecosystems. Balance is not automatic — it is **built**.",
                 color: Color(red: 0.22, green: 0.48, blue: 0.68)
             )
 
@@ -503,6 +505,22 @@ struct PhaseFinalSynthesisView: View {
             }
         }
     }
+}
+
+// MARK: - Simulation status (diagnosis from the model)
+
+private func SimulationStatusLine(status: String) -> some View {
+    HStack(spacing: 6) {
+        Text("Diagnosis:")
+            .font(.system(size: 11, weight: .medium))
+            .foregroundColor(.white.opacity(0.5))
+        Text("environment.status = \(status)")
+            .font(.system(size: 11, weight: .medium, design: .monospaced))
+            .foregroundColor(.orange.opacity(0.9))
+    }
+    .padding(.horizontal, 10)
+    .padding(.vertical, 6)
+    .background(RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.06)))
 }
 
 // MARK: - Shared Panel Components
@@ -697,36 +715,39 @@ private final class BlowLevelBuffer: @unchecked Sendable {
     var shouldTriggerSuccess: Bool = false
 }
 
-@MainActor
-final class BlowMicDetector: ObservableObject {
+/// All engine, completion, and UI updates run on DispatchQueue.main.
+/// @unchecked Sendable: thread safety is enforced manually via assert(Thread.isMainThread).
+final class BlowMicDetector: ObservableObject, @unchecked Sendable {
     @Published var blowLevel: Float = 0
 
     private var engine: AVAudioEngine?
     private var completion: ((Bool) -> Void)?
     private let greenThreshold: Float = 0.4
     private let requiredGreenCount: Int = 10
-    private var timeoutTask: Task<Void, Never>?
-    private var pollTask: Task<Void, Never>?
+    private var pollWorkItem: DispatchWorkItem?
+    private var timeoutWorkItem: DispatchWorkItem?
     private let buffer = BlowLevelBuffer()
 
     func start(completion: @escaping @Sendable (Bool) -> Void) {
-        stop()
-        self.completion = completion
-
-        AVAudioSession.sharedInstance().requestRecordPermission { [weak self] granted in
-            Task { @MainActor [weak self] in
-                guard let self else { return }
-                guard granted else {
-                    self.completion?(false)
-                    self.completion = nil
-                    return
+        DispatchQueue.main.async { [weak self] in
+            self?.stop()
+            self?.completion = completion
+            AVAudioSession.sharedInstance().requestRecordPermission { [weak self] granted in
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else { return }
+                    guard granted else {
+                        self.completion?(false)
+                        self.completion = nil
+                        return
+                    }
+                    self.startEngine()
                 }
-                self.startEngine()
             }
         }
     }
 
     private func startEngine() {
+        assert(Thread.isMainThread)
         let session = AVAudioSession.sharedInstance()
         do {
             try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetooth])
@@ -777,21 +798,29 @@ final class BlowMicDetector: ObservableObject {
             return
         }
 
-        timeoutTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(nanoseconds: 8_000_000_000)
+        let timeoutItem = DispatchWorkItem { [weak self] in
             self?.triggerSuccess(success: false)
         }
+        timeoutWorkItem = timeoutItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 8, execute: timeoutItem)
 
-        pollTask = Task { @MainActor [weak self] in
+        schedulePoll()
+    }
+
+    private func schedulePoll() {
+        let item = DispatchWorkItem { [weak self] in
             guard let self else { return }
-            while !Task.isCancelled, self.engine != nil {
-                try? await Task.sleep(nanoseconds: 50_000_000)
-                self.pollLevel()
+            self.pollLevel()
+            if self.engine != nil, self.completion != nil {
+                self.schedulePoll()
             }
         }
+        pollWorkItem = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: item)
     }
 
     private func pollLevel() {
+        assert(Thread.isMainThread)
         buffer.lock.lock()
         let level = buffer.rawLevel
         let trigger = buffer.shouldTriggerSuccess
@@ -802,28 +831,33 @@ final class BlowMicDetector: ObservableObject {
     }
 
     private func triggerSuccess(success: Bool) {
-        pollTask?.cancel()
-        pollTask = nil
-        timeoutTask?.cancel()
-        timeoutTask = nil
+        assert(Thread.isMainThread)
+        pollWorkItem?.cancel()
+        pollWorkItem = nil
+        timeoutWorkItem?.cancel()
+        timeoutWorkItem = nil
         let comp = completion
         completion = nil
         comp?(success)
-        Task { @MainActor [weak self] in
-            try? await Task.sleep(nanoseconds: 100_000_000)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
             self?.stopEngine()
         }
     }
 
     func stop() {
-        pollTask?.cancel()
-        pollTask = nil
-        timeoutTask?.cancel()
-        timeoutTask = nil
+        if !Thread.isMainThread {
+            DispatchQueue.main.async { [weak self] in self?.stop() }
+            return
+        }
+        pollWorkItem?.cancel()
+        pollWorkItem = nil
+        timeoutWorkItem?.cancel()
+        timeoutWorkItem = nil
         stopEngine()
     }
 
     private func stopEngine() {
+        assert(Thread.isMainThread)
         guard let eng = engine else { return }
         engine = nil
         completion = nil

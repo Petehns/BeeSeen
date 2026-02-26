@@ -1,13 +1,41 @@
 import SwiftUI
 
+// MARK: - App Stage (before phases)
+
+private enum AppStage {
+    case start
+    case intro
+    case simulation
+}
+
 // MARK: - Root View
 
 struct ContentView: View {
     @StateObject private var vm = EcosystemViewModel()
     @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var isSidebarVisible = true
+    @State private var appStage: AppStage = .start
 
     var body: some View {
+        Group {
+            switch appStage {
+            case .start:
+                StartView(onBegin: { appStage = .intro })
+            case .intro:
+                IntroView(onStart: {
+                    appStage = .simulation
+                    vm.start()
+                })
+            case .simulation:
+                simulationContent
+            }
+        }
+        .ignoresSafeArea()
+        .statusBarHidden(true)
+    }
+
+    @ViewBuilder
+    private var simulationContent: some View {
         GeometryReader { geo in
             if sizeClass == .regular {
                 splitLayout(geo: geo)
@@ -15,9 +43,6 @@ struct ContentView: View {
                 compactLayout(geo: geo)
             }
         }
-        .ignoresSafeArea()
-        .statusBarHidden(true)
-        .onAppear { vm.start() }
     }
 
     // MARK: - Layouts
@@ -285,5 +310,107 @@ struct PhaseIndicatorBadge: View {
         }
         .allowsHitTesting(false)
         .animation(.easeInOut(duration: 0.5), value: phase)
+    }
+}
+
+// MARK: - Start Screen
+
+struct StartView: View {
+    var onBegin: () -> Void
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack {
+                Color(red: 0.09, green: 0.09, blue: 0.10)
+                    .ignoresSafeArea()
+
+                VStack(spacing: 28) {
+                    Spacer()
+
+                    Text("BeeSeen")
+                        .font(.system(size: 42, weight: .bold, design: .serif))
+                        .foregroundColor(.white)
+
+                    Text("A simulation about balance, biodiversity, and the invisible work of bees.")
+                        .font(.system(size: 18, weight: .regular))
+                        .foregroundColor(.white.opacity(0.85))
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(4)
+                        .padding(.horizontal, 40)
+
+                    Spacer()
+
+                    Button(action: onBegin) {
+                        Text("Begin the Simulation")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(RoundedRectangle(cornerRadius: 12).fill(Color(red: 0.22, green: 0.48, blue: 0.68)))
+                    }
+                    .padding(.horizontal, 48)
+                    .padding(.bottom, 60)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Intro Screen
+
+struct IntroView: View {
+    var onStart: () -> Void
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack {
+                Color(red: 0.09, green: 0.09, blue: 0.10)
+                    .ignoresSafeArea()
+
+                VStack(alignment: .leading, spacing: 20) {
+                    ScrollView(showsIndicators: false) {
+                        VStack(alignment: .leading, spacing: 20) {
+                            introParagraph("BeeSeen is an interactive environmental simulation.")
+                            introParagraph("It was created to explore how changes in biodiversity — especially the decline of pollinators — affect ecosystems and food systems.")
+                            introParagraph("Through a computational model, you will adjust environmental variables and observe how the system responds.")
+                            introParagraph("Each decision represents real-world pressures.")
+                            introParagraph("The outcomes reflect scientific relationships between pollination, habitat, climate, and agricultural practices.")
+                            introParagraph("The goal is not to \"win.\"")
+                            introParagraph("The goal is to understand balance.")
+                        }
+                        .padding(.horizontal, 28)
+                        .padding(.top, 50)
+                        .padding(.bottom, 24)
+                    }
+
+                    BlinkingHintText()
+                        .padding(.bottom, 50)
+                }
+            }
+            .contentShape(Rectangle())
+            .onTapGesture { onStart() }
+        }
+    }
+
+    private func introParagraph(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 16))
+            .foregroundColor(.white.opacity(0.88))
+            .lineSpacing(5)
+    }
+}
+
+// MARK: - Blinking hint (opacity animation on main thread only)
+
+struct BlinkingHintText: View {
+    @State private var opacity: Double = 0.5
+
+    var body: some View {
+        Text("press the screen to start")
+            .font(.system(size: 14, weight: .light))
+            .foregroundColor(.white.opacity(opacity))
+            .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: opacity)
+            .onAppear { opacity = 0.95 }
+            .frame(maxWidth: .infinity)
     }
 }
