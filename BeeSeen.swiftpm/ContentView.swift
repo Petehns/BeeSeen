@@ -361,42 +361,89 @@ struct StartView: View {
 struct IntroView: View {
     var onStart: () -> Void
 
+    private let lines: [String] = [
+        "I'm Michelle.",
+        "I study forest ecosystems.",
+        "Over the past few years, I started noticing something strange.",
+        "Biodiversity was declining.",
+        "Fewer plants regenerating.",
+        "Fewer fruits forming.",
+        "When I followed the data, the pattern was clear.",
+        "The decline of pollinators — especially bees — was reshaping the system.",
+        "BeeSeen is a simulation based on those relationships.",
+        "Here, you will adjust environmental pressures",
+        "and observe how ecosystems respond.",
+        "There is no winning.",
+        "Only balance.",
+    ]
+
     var body: some View {
         GeometryReader { geo in
-            ZStack {
+            ZStack(alignment: .bottomLeading) {
                 Color(red: 0.09, green: 0.09, blue: 0.10)
                     .ignoresSafeArea()
 
-                VStack(alignment: .leading, spacing: 20) {
-                    ScrollView(showsIndicators: false) {
-                        VStack(alignment: .leading, spacing: 20) {
-                            introParagraph("BeeSeen is an interactive environmental simulation.")
-                            introParagraph("It was created to explore how changes in biodiversity — especially the decline of pollinators — affect ecosystems and food systems.")
-                            introParagraph("Through a computational model, you will adjust environmental variables and observe how the system responds.")
-                            introParagraph("Each decision represents real-world pressures.")
-                            introParagraph("The outcomes reflect scientific relationships between pollination, habitat, climate, and agricultural practices.")
-                            introParagraph("The goal is not to \"win.\"")
-                            introParagraph("The goal is to understand balance.")
+                // Text block — left-aligned, vertically centered
+                VStack(alignment: .leading, spacing: 0) {
+                    Spacer()
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        ForEach(lines, id: \.self) { line in
+                            Text(line)
+                                .font(introFont(for: line))
+                                .foregroundColor(introColor(for: line))
+                                .lineSpacing(2)
                         }
-                        .padding(.horizontal, 28)
-                        .padding(.top, 50)
-                        .padding(.bottom, 24)
                     }
+                    .padding(.leading, geo.size.width * 0.30)
+                    .padding(.trailing, 40)
+
+                    Spacer()
 
                     BlinkingHintText()
-                        .padding(.bottom, 50)
+                        .padding(.leading, geo.size.width * 0.30)
+                        .padding(.bottom, 48)
                 }
+
+                // Michelle image — bottom-left
+                Image("Michelle")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(height: geo.size.height * 0.72)
+                    .frame(maxWidth: geo.size.width * 0.26)
+                    .clipShape(RoundedRectangle(cornerRadius: 0))
+                    .alignmentGuide(.bottom) { d in d[.bottom] }
             }
             .contentShape(Rectangle())
             .onTapGesture { onStart() }
         }
     }
 
-    private func introParagraph(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 16))
-            .foregroundColor(.white.opacity(0.88))
-            .lineSpacing(5)
+    private func introFont(for line: String) -> Font {
+        switch line {
+        case "I'm Michelle.":
+            return .system(size: 22, weight: .semibold, design: .serif)
+        case "There is no winning.", "Only balance.",
+             "BeeSeen is a simulation based on those relationships.":
+            return .system(size: 15, weight: .regular)
+        default:
+            return .system(size: 15, weight: .light)
+        }
+    }
+
+    private func introColor(for line: String) -> Color {
+        switch line {
+        case "I'm Michelle.":
+            return .white
+        case "There is no winning.", "Only balance.":
+            return .white.opacity(0.9)
+        case "BeeSeen is a simulation based on those relationships.",
+             "Here, you will adjust environmental pressures",
+             "and observe how ecosystems respond.":
+            return .white.opacity(0.7)
+        default:
+            return .white.opacity(0.82)
+        }
     }
 }
 
